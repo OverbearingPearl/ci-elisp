@@ -52,4 +52,3 @@ jobs:
           smtp-user: ${{ secrets.SMTP_USER }}
           smtp-pass: ${{ secrets.SMTP_PASS }}
           to: ${{ secrets.NOTIFY_EMAIL }}
-
