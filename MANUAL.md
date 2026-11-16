@@ -144,6 +144,28 @@ and `ACTIVE.md` are not records, and `0000-*` is a template.
 Nothing here runs when the directory is absent, which is why a project that
 does not keep records needs no configuration at all.
 
+## Vendored code
+
+A directory of third-party files is a class of its own, because the rules for
+our source are wrong for somebody else's: the headers belong to its author,
+the Commentary is not ours to shorten, and its file names carry its package
+prefix rather than ours.
+
+| key | default | what it decides |
+|---|---|---|
+| `:vendor-dir` | `"vendor"` | where vendored packages live |
+
+Vendored files are discovered, classified as `vendor`, and put on the load
+path, so a test can `require` them exactly as it requires the package. They
+are checked for whitespace hygiene and nothing else: a per-file check runs on
+`main`, `business`, `test` and `tooling`, and a check that wants vendor files
+names the class itself. The profile exists so the policy can answer for the
+class -- no header is required or forbidden, the Commentary minimum is zero,
+and a vendored module may only require another vendored one.
+
+That last rule is the useful one: it keeps a vendored package from quietly
+depending on the host's modules, which is how a copy stops being replaceable.
+
 ## Module layers
 
 An architecture with layers has one rule a `require` can express, and the
