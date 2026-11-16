@@ -16,7 +16,7 @@
 ;; (p/defperf first-turn
 ;;   "One turn through the fake provider, in ms."
 ;;   (let ((start (float-time)))
-;;     (pearl-run-fake-turn)
+;;     (run-one-fake-turn)
 ;;     (/ (* 1000 (- (float-time) start)) 1)))
 
 (provide 'perf)
