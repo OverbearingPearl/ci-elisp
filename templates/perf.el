@@ -9,10 +9,6 @@
 
 ;;; Code:
 
-;; Registered by ci/perf.el, which loads this file; declared so a byte-compile
-;; of this file alone does not warn about an unknown function.
-(declare-function p/defperf "perf")
-
 ;; A benchmark of this package's own hot path. The name must match a budget
 ;; key in the :perf table of config/ci.el, or the table reports it as
 ;; unbudgeted. Add :tty t for one that needs a terminal to mean anything.
