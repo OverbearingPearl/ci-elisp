@@ -33,6 +33,20 @@
     :test-dir "test"
     :tooling-dir "ci"
 
+    ;; Where decision records live, relative to the repository root.  A
+    ;; project with no records simply has no directory and the check passes
+    ;; silently; a project that keeps them elsewhere names the directory here.
+    :adr-dir "docs/decisions"
+
+    ;; Module layers, when the architecture has them.  `:layers' maps a layer
+    ;; name to the module names inside it -- the module name is the file name
+    ;; without the package prefix -- and `:layer-may-require' lists, per layer,
+    ;; the layers it may require.  A layer may always require itself.  Nil
+    ;; disables `layer-order'; a business module missing from `:layers' is
+    ;; reported rather than exempted.
+    :layers nil
+    :layer-may-require nil
+
     ;; Which module classes a given class may require.  Features outside
     ;; the repository are ignored.
     ;; What a module class *is*, in one table.  Every question a check

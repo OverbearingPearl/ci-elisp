@@ -113,7 +113,67 @@ profile with all three properties, every class named exists, every header
 set resolves, and every class a check claims exists.  A misspelled class
 would otherwise disable a rule silently.
 
+## Decision records
+
+A project that keeps architecture decision records gets two rules for free,
+both switched on by the presence of a directory rather than by configuration:
+
+| key | default | what it decides |
+|---|---|---|
+| `:adr-dir` | `"docs/decisions"` | where records live, relative to the repository root |
+
+`adr-format` reads every `NNNN-kebab-title.md` in that directory and in
+`superseded/`, and asks for four things: a number in the file name that
+matches the number in the title, a `## Status` whose first word is one of
+`proposed`, `accepted`, `rejected`, `deprecated`, `superseded`, `amended`, the
+sections that carry the argument, and a place that agrees with the status.  A
+record whose status says superseded belongs in `superseded/`, and one in
+`superseded/` has to say so.  Numbers are unique across both directories,
+because a number is the reference a later record uses.
+
+Two styles are accepted.  Nygard's is a `# N. Title`, a `Date: YYYY-MM-DD`
+line, `## Status`, `## Context`, `## Decision` and `## Consequences`.  MADR is
+the same argument with YAML front matter and a `## Decision Outcome` heading.
+A file is asked to be one of them rather than a mixture; `decisions.md` is
+treated as the generated table of contents and `0000-*` as a template, so
+neither is checked.
+
+Nothing here runs when the directory is absent, which is why a project that
+does not keep records needs no configuration at all.
+
+## Module layers
+
+An architecture with layers has one rule a `require` can express, and the
+class profiles cannot: every module in `lisp/` is class `business`, so nothing
+in `:profiles` stops one business module from requiring another that sits
+above it.
+
+| key | default | what it decides |
+|---|---|---|
+| `:layers` | nil | layer name -> the module names in it |
+| `:layer-may-require` | nil | layer name -> the layers it may require |
+
+The module name is the file name without the package prefix, so `loop`
+answers for `lisp/<pkg>-loop.el`, and `:layer-may-require` does not have to
+list the layer itself: a layer may always require its own.
+
+```elisp
+(setq p/config
+      (plist-put p/config :layers
+                 '((core contract loop session)
+                   (adapters provider-sse session-jsonl)
+                   (product console tools undo))))
+(setq p/config
+      (plist-put p/config :layer-may-require
+                 '((core) (adapters core) (product core adapters))))
+```
+
+A business module that is missing from `:layers` is reported rather than
+exempted, because an undeclared module is the one a reviewer forgets to
+place.  Nil disables the check.
+
 ## Layers
+
 
 ```
 ci/                  what "correct" means          (runs anywhere, no GitHub)
