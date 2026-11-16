@@ -6,6 +6,7 @@
 <pkg>.el           the package entry point, the only .el at the repo root
 lisp/*.el          business modules
 test/*.el          test modules (-tests suffix recommended)
+vendor/**/*.el     vendored packages, checked for whitespace and nothing else
 ```
 
 The root directory holds exactly one `.el` file; anything else is a
@@ -94,8 +95,9 @@ The current profiles:
 ```
 main      headers (:require :package)                          may require business            commentary 2-
 business  headers (:require :submodule, :forbid :entry-only)   may require business            commentary 2-
-test      headers (:forbid  :package)   may require main business test  commentary 1-3
+test      headers (:forbid  :package)   may require main business test vendor  commentary 1-3
 tooling   headers (:forbid  :package)   may require tooling             commentary 1-
+vendor    headers none                  may require vendor              commentary 0-
 ```
 
 Reading a row answers "what is a test file" in one line.  And these two
@@ -122,21 +124,22 @@ both switched on by the presence of a directory rather than by configuration:
 |---|---|---|
 | `:adr-dir` | `"docs/decisions"` | where records live, relative to the repository root |
 
-`adr-format` reads every `NNNN-kebab-title.md` in that directory and in
-`superseded/`, and asks for four things: a number in the file name that
-matches the number in the title, a `## Status` whose first word is one of
-`proposed`, `accepted`, `rejected`, `deprecated`, `superseded`, `amended`, the
-sections that carry the argument, and a place that agrees with the status.  A
-record whose status says superseded belongs in `superseded/`, and one in
-`superseded/` has to say so.  Numbers are unique across both directories,
-because a number is the reference a later record uses.
+`adr-format` reads every record in that directory and in `superseded/`, and
+asks for four things: a number that the file name, the title and the front
+matter agree on; a status from a closed vocabulary; the sections that carry
+the argument; and a place that agrees with the status. A record whose status
+says superseded belongs in `superseded/`, and one in `superseded/` has to say
+so. Numbers are unique across both directories, because a number is the
+reference a later record uses.
 
-Two styles are accepted.  Nygard's is a `# N. Title`, a `Date: YYYY-MM-DD`
-line, `## Status`, `## Context`, `## Decision` and `## Consequences`.  MADR is
-the same argument with YAML front matter and a `## Decision Outcome` heading.
-A file is asked to be one of them rather than a mixture; `decisions.md` is
-treated as the generated table of contents and `0000-*` as a template, so
-neither is checked.
+Two shapes are accepted. The front-matter shape is ADR-toolkit's: YAML with
+`title`, `date`, `status` and `summary`, then `Context`, `Decision` and
+`Consequences`. The plain shape is Nygard's: a numbered heading, a
+`Date: YYYY-MM-DD` line, `## Status`, then the same sections. A file is asked
+to be one of them rather than a mixture. Headings may be level one or level
+two, so a template that uses `#` and a document written with `##` both pass.
+File names carry four digits, with or without an `ADR-` prefix. `README.md`
+and `ACTIVE.md` are not records, and `0000-*` is a template.
 
 Nothing here runs when the directory is absent, which is why a project that
 does not keep records needs no configuration at all.
