@@ -145,8 +145,10 @@ ci/run-checks.sh --explain FILE          # one file: its class, its profile, eve
 ci/run-checks.sh --files                 # every file the suite inspects, with its class
 ```
 
-`CHECKS.md` commits both tables, and `make lint` fails if it is stale.
-A third check, `policy`, validates the tables themselves: every class has a
+Both come from the registry and the policy, so neither can drift, and neither
+is committed: a file that repeats what a command prints is a file that goes
+stale on the one pull nobody re-ran it.  `policy` validates the tables
+themselves: every class has a
 profile with all three properties, every class named exists, every header
 set resolves, and every class a check claims exists.  A misspelled class
 would otherwise disable a rule silently.
@@ -249,7 +251,6 @@ ci/                  what "correct" means          (runs anywhere, no GitHub)
 ci/config.el         the only file with policy
 ci/lib/              shared plumbing (no policy)
 ci/checks/NN-*.el    one check per file, name = check name
-CHECKS.md            generated from ci/checks/, verified in CI
 ci/perf.el           the performance benchmarks (budgets live in config.el)
 ci/run-*.sh          the entry points make calls: checks, tests, perf
 
@@ -260,9 +261,8 @@ ci/run-*.sh          the entry points make calls: checks, tests, perf
 A check is added by creating `ci/checks/NN-<name>.el` and calling
 `p/defcheck` (per file) or `p/defcheck-global` (whole repository). There is
 no central list to update: files are loaded in name order, and
-`make checks-doc` regenerates `CHECKS.md` at the project root, and
-`bootstrap.sh` runs the same generation before its first lint -- the two
-commands a project runs after adding `ci/` and after every pull.
+`ci/run-checks.sh --list` prints what was registered, which is the table a
+README would otherwise duplicate and get wrong.
 
 ## When what runs
 

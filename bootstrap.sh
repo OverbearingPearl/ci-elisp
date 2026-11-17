@@ -22,9 +22,7 @@ and again only when a pull changes a template.
   --help         this text
 
 What it writes, and what to do with each:
-  Makefile                  make lint | test | perf | hooks | checks-doc
-  CHECKS.md                 the check table, generated from ci/checks/ here
-                            and verified by `make lint` from then on
+  Makefile                  make lint | test | perf | hooks
   .pre-commit-config.yaml   the message before it is created, lint before a
                             commit, tests before a push
   config/ci.el              the Emacs version this package claims; every other
@@ -81,7 +79,7 @@ here_top=$(git -C "$here" rev-parse --show-toplevel 2>/dev/null || printf '')
 missing_targets() {
   file=$1
   missing=""
-  for target in lint test perf hooks checks-doc; do
+  for target in lint test perf hooks; do
     grep -q "^$target:" "$file" 2>/dev/null || missing="$missing $target"
   done
   printf '%s' "$missing"
@@ -230,17 +228,6 @@ if [ "$github_only" = 0 ]; then
       echo "  bootstrap does not install pre-commit; install it yourself,"
       echo "  then run: make hooks"
     fi
-  fi
-
-  # The check table is generated, and `make lint' verifies it: a project that
-  # has never had one fails its first lint on a file it never heard of, and a
-  # pull that adds a check leaves an old table behind. Both are the same fix,
-  # and it belongs here rather than in the reader's memory -- bootstrap is the
-  # command the README names after adding ci/ and after every pull.
-  if "$here/run-checks.sh" --write-docs "$root/CHECKS.md" >/dev/null 2>&1; then
-    echo "wrote CHECKS.md (the check table; make lint verifies it)"
-  else
-    echo "could not write CHECKS.md; make checks-doc will report why"
   fi
 
   # A first lint is worth having immediately: it either confirms the package
