@@ -66,12 +66,17 @@ is required, and it earns its place twice: MELPA's default file spec
 excludes `*-tests.el`, so tests never reach a published tarball, and the
 suffix marks a file as a test without opening it.
 
-Two checks relax for `test/`, both because a test is not published:
+A test is also the only place where a name may appear before it exists. The
+first step of a TDD cycle is a test that calls a function nobody has written
+yet, and `banned-construct' forbids `declare-function', the other way to say
+"this will exist at runtime", so the compiler has to be told not to mind.
+Two checks relax for `test/`:
 
 | relaxed for `test/` | why |
 |---|---|
 | `package-lint` | it models a published package; its prefix rule would ask for the package prefix |
-| `byte-compile`, `lexical` warnings | the "dynamic var lacks a prefix" warning is the same convention |
+| `byte-compile`: `lexical` | the "dynamic var lacks a prefix" warning is a convention for published code |
+| `byte-compile`: `unresolved` | a test names the API before it is written; a mistyped name still fails when ERT runs it |
 
 Everything else still applies: whitespace, heading comments, banned
 constructs, byte-compilation, checkdoc, header rules, `provide` matching the
