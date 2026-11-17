@@ -469,11 +469,21 @@ or, by hand: `pre-commit install` and `--hook-type pre-push`.
 
 Commit-message style belongs to the project, so bootstrap writes no message
 hook. A project that wants the mechanical half of the suite's own rules adds
-`ci/check-commit-message.sh` at the commit-msg stage of its own config; one
-that already has a message hook keeps it, because bootstrap never replaces an
-existing `.pre-commit-config.yaml`. The prose rules stay in whatever file the
-project keeps them in -- `.pi/ai-git-commit.json` here -- and no script reads
-that file.
+`ci/check-commit-message.sh` at the commit-msg stage of its own config. The
+prose rules stay in whatever file the project keeps them in -- here
+`.pi/ai-git-commit.json` -- and no script reads that file.
+
+Who owns the hooks decides what bootstrap does, and it asks two questions:
+
+| the project already has | bootstrap does |
+|---|---|
+| `pre-commit` not on PATH | writes the config, installs nothing, says which command to run |
+| `.pre-commit-config.yaml` | keeps it, installs nothing, points at `make hooks` |
+| hooks in `.git/hooks` but no config | keeps them, writes no config, installs nothing |
+| neither | writes the config, installs it with `make hooks` |
+
+`--force` answers "take ci's hooks" for the two middle rows. It does not make
+`pre-commit` appear; without the tool the config is a file that nothing runs.
 
 The script itself enforces only what a script can see: a capitalised subject
 with no type prefix and no trailing period, 80/72 columns, no marketing words,

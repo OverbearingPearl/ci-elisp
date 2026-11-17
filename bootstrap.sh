@@ -15,7 +15,8 @@ usage: ci/bootstrap.sh [--force] [--github | --github-only]
 Writes the files a project owns. Run it once after adding ci/ as a subtree,
 and again only when a pull changes a template.
 
-  --force        overwrite files that already exist
+  --force        overwrite files that already exist, and take over the git
+                 hooks even when the project has its own
   --github       also copy ci/templates/github/ to .github/
   --github-only  only do that; leaves the Makefile and the config alone
   --help         this text
@@ -24,13 +25,17 @@ What it writes, and what to do with each:
   Makefile                  make lint | test | perf | hooks | checks-doc
   CHECKS.md                 the check table, generated from ci/checks/ here
                             and verified by `make lint` from then on
-  .pre-commit-config.yaml   lint before a commit, the message before it is
-                            created, tests before a push
+  .pre-commit-config.yaml   lint before a commit, tests before a push
   config/ci.el              the Emacs version this package claims; every other
                             knob of ci/config.el can be overridden there too
   .github/                  with --github: the two gates, lint and test
 
-After it runs: edit config/ci.el, then `make hooks`, then `make lint`.
+Hooks are installed only when this run wrote the hook config: a project that
+already has `.pre-commit-config.yaml`, or hooks in .git/hooks, keeps them, and
+the script says so instead of replacing them. It never installs pre-commit
+itself.
+
+After it runs: edit config/ci.el, then `make lint`.
 USAGE
 }
 
@@ -116,9 +121,41 @@ if [ "$github_only" = 0 ]; then
   write "config/ci.el" "$here/templates/ci.el"
 fi
 
-if [ "$github_only" = 0 ] && [ -e ".pre-commit-config.yaml" ] && [ "$force" = 0 ]; then
+# Where git keeps this repository's hooks. `--git-path' follows core.hooksPath
+# and worktrees; the fallback is for a git too old to answer.
+hooks_dir=$(git rev-parse --git-path hooks 2>/dev/null || printf '.git/hooks')
+case $hooks_dir in
+  /*) ;;
+  *) hooks_dir="$root/$hooks_dir" ;;
+esac
+
+existing_hooks() {
+  for hook in pre-commit commit-msg pre-push; do
+    if [ -f "$hooks_dir/$hook" ] && [ -x "$hooks_dir/$hook" ]; then
+      printf '%s ' "$hook"
+    fi
+  done
+}
+have_hooks=$(existing_hooks)
+
+# Installing is decided by who owns the hooks, not by whether the tool is
+# present. A project that already configured pre-commit, or already has hooks
+# in .git/hooks, keeps them; replacing them is what --force is for. Installing
+# ci's hooks over somebody else's setup is the silent takeover this script is
+# supposed to prevent.
+install_hooks=0
+
+if [ "$github_only" = 1 ]; then
+  : # --github-only leaves the Makefile, the config and the hooks alone
+elif [ -e ".pre-commit-config.yaml" ] && [ "$force" = 0 ]; then
   echo "kept .pre-commit-config.yaml (exists; --force replaces it)"
-elif [ "$github_only" = 0 ]; then
+  echo "  its hooks are the project's, so none were installed"
+  echo "  run \`make hooks' to install them, or --force to take ci's instead"
+elif [ -n "$have_hooks" ] && [ "$force" = 0 ]; then
+  echo "kept the hooks already in $hooks_dir: $have_hooks"
+  echo "  no .pre-commit-config.yaml was written and none were installed"
+  echo "  --force writes ci's config and installs its hooks over them"
+else
   cat > .pre-commit-config.yaml <<'YAML'
 # Local hooks only: lint gates a commit, tests gate a push. Commit-message
 # style belongs to the project, so no message hook is written here; add
@@ -147,6 +184,7 @@ repos:
         stages: [pre-push]
 YAML
   echo "wrote .pre-commit-config.yaml"
+  install_hooks=1
 fi
 
 # GitHub reads workflows from the repository root and nowhere else, so this
@@ -171,15 +209,19 @@ fi
 
 if [ "$github_only" = 0 ]; then
   # Installing the hooks is the step people skip, and a hook whose stage was
-  # never installed fails silently. Do it here when the tool is present.
-  if command -v pre-commit >/dev/null 2>&1; then
-    echo
-    echo "installing the hooks:"
-    make --no-print-directory hooks
-  else
-    echo
-    echo "pre-commit is not installed, so the hooks are not installed either."
-    echo "  install it, then run: make hooks"
+  # never installed fails silently. Do it here, but only for hooks this run
+  # wrote: a project's own setup was reported above and is left alone.
+  if [ "$install_hooks" = 1 ]; then
+    if command -v pre-commit >/dev/null 2>&1; then
+      echo
+      echo "installing the hooks:"
+      make --no-print-directory hooks
+    else
+      echo
+      echo "pre-commit is not installed, so the hooks are not installed either."
+      echo "  bootstrap does not install pre-commit; install it yourself,"
+      echo "  then run: make hooks"
+    fi
   fi
 
   # The check table is generated, and `make lint' verifies it: a project that

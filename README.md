@@ -20,9 +20,14 @@ git subtree pull --prefix=ci git@github.com:OverbearingPearl/ci-elisp.git main -
 ci/bootstrap.sh
 ```
 
-Bootstrap writes the project's files, generates `CHECKS.md`, installs the
-three hooks when `pre-commit` is present, and runs a first `make lint`, saying
-either that the package is clean or which message is the first to fix. The
+Bootstrap writes the project's files, generates `CHECKS.md`, installs the git
+hooks when it is the one that wrote their config, and runs a first `make lint`,
+saying either that the package is clean or which message is the first to fix.
+Hooks are a question of ownership rather than of what is installed: a project
+that already has `.pre-commit-config.yaml` or hooks in `.git/hooks` keeps them
+and bootstrap only says so; `--force` takes them over. `pre-commit` itself is
+never installed -- without it the hooks are written but not installed, and the
+script says which command to run. The
 check table is generated here because `make lint` verifies it: without it the
 first lint would fail on a file the project has never heard of, and a pull that
 adds a check would leave an old table behind. The line is two commands
