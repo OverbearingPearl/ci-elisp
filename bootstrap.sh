@@ -118,10 +118,18 @@ fi
 
 if [ "$github_only" = 0 ] && [ -e ".pre-commit-config.yaml" ] && [ "$force" = 0 ]; then
   echo "kept .pre-commit-config.yaml (exists; --force replaces it)"
+  if grep -qE 'commit-msg|commit-message' .pre-commit-config.yaml; then
+    echo "  it has a commit-message hook of its own; ci's is not added, so its rules win"
+  else
+    echo "  it has no commit-msg hook, so ci's message check is not installed"
+    echo "  add ci/check-commit-message.sh to it if you want the shape from config/ci.el"
+  fi
 elif [ "$github_only" = 0 ]; then
   cat > .pre-commit-config.yaml <<'YAML'
-# Local hooks only. The rules live in .pi/ai-git-commit.json as prose; this is
-# the half of them a script can see, plus the two gates the suite provides.
+# Local hooks only. The message style is prose in whatever file you keep it in
+# (pi reads .pi/ai-git-commit.json); the hook enforces only the shape, which
+# comes from :commit-message in config/ci.el. The other two hooks are the gates
+# the suite provides.
 minimum_pre_commit_version: '3.0.0'
 fail_fast: true
 repos:
@@ -151,7 +159,7 @@ repos:
         require_serial: true
         stages: [pre-push]
 YAML
-  echo "wrote .pre-commit-config.yaml"
+  echo "wrote .pre-commit-config.yaml (commit-message shape from config/ci.el)"
 fi
 
 # GitHub reads workflows from the repository root and nowhere else, so this

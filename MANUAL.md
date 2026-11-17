@@ -471,12 +471,19 @@ or, by hand: `pre-commit install`, then `--hook-type commit-msg` and
 
 The message hook exists because the message rules are prose, in a file that only
 the editor extension reads, so a message written by hand was checked by nothing.
-It enforces the part a script can see: a capitalised subject with no type prefix
-and no trailing period, a hard limit of 80 columns on the subject and 72 on the
-body, one blank line after the subject, no marketing words, no "Generated with"
-and no co-author trailer. It cannot see whether the change is one change or
-whether the body explains why, which is where the rules spend most of their
-words.
+It enforces the shape a script can see, and that shape is policy:
+`:commit-message` in `ci/config.el` holds the defaults -- a capitalised subject
+with no type prefix and no trailing period, 80 and 60 columns on the subject, 72
+on the body, no marketing words, no "Generated with" and no co-author trailer --
+and a project overrides the keys it writes differently in `config/ci.el`. The
+prose file itself is read by no script.
+
+Who owns the message rules is decided in one place. A project that already has
+a `.pre-commit-config.yaml` keeps it: bootstrap says so and does not add the
+hook, so its own commit-message rule wins and nothing conflicts. A project
+without one gets the hook above; if its prose style differs from the defaults,
+it mirrors the mechanical half into `:commit-message` rather than editing
+`ci/`, which a pull would replace.
 
 The hygiene checks that usually come from `pre-commit-hooks` are part of the
 suite instead, so local and CI enforce the same code:
