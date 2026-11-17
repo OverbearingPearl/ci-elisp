@@ -121,24 +121,6 @@
     :commentary-width 80
     :checkdoc-autofix never
 
-    ;; Commit-message shape, for `check-commit-message.sh': the half of the
-    ;; message rules a script can see.  The prose half (why the change was
-    ;; made, one logical change per commit) lives in the project's own style
-    ;; file and is read by no script.  A project overrides the keys that
-    ;; differ in `config/ci.el'; the hook itself is only installed when the
-    ;; project has no `.pre-commit-config.yaml' of its own.
-    :commit-message
-    (:capitalize t
-     :forbid-prefix t
-     :forbid-period t
-     :subject-soft 60
-     :subject-hard 80
-     :body-width 72
-     :forbid-lines ("This commit fixes" "I changed" "This PR"
-                    "Generated with" "Co-authored-by")
-     :warn-words ("improve" "enhance" "robust" "seamless"
-                  "comprehensive" "leverage" "utilize"))
-
     ;; Budgets for `make perf'.  Absolute numbers are generous multiples of
     ;; the measurements recorded in docs/architecture.md, wide enough to pass
     ;; on a loaded laptop; a ratio is used where a slow machine would
@@ -174,38 +156,11 @@ normal state: the defaults above then apply."
   "Return property PROP of module CLASS from the :profiles table."
   (plist-get (cdr (assq class (p/config-value :profiles))) prop))
 
-(defconst p/commit-message-exports
-  '((:capitalize . "capitalize")
-    (:forbid-prefix . "forbid_prefix")
-    (:forbid-period . "forbid_period")
-    (:subject-soft . "subject_soft")
-    (:subject-hard . "subject_hard")
-    (:body-width . "body_width"))
-  "Shell names for the `:commit-message' knobs.")
-
-(defun p/export-commit-message ()
-  "Print the commit-message shape as KEY=VALUE lines.
-`check-commit-message.sh' reads them.  A key the project does not set is
-not printed, so the hook keeps its own default for it."
-  (let ((spec (p/config-value :commit-message)))
-    (dolist (pair p/commit-message-exports)
-      (when (plist-member spec (car pair))
-        (let ((value (plist-get spec (car pair))))
-          (princ (format "%s=%s\n" (cdr pair)
-                         (cond ((eq value t) "1")
-                               ((null value) "0")
-                               (t (number-to-string value))))))))
-    (dolist (line (plist-get spec :forbid-lines))
-      (princ (format "forbid_line=%s\n" line)))
-    (dolist (word (plist-get spec :warn-words))
-      (princ (format "warn_word=%s\n" word)))))
-
 (defun p/config-export (args)
   "Print the value named by the first element of ARGS.
 Keys are `submodule' (the business module directory), `test-dir' (the
 test module directory), `vendor' (the vendored-code directory), `main'
-(main file basename), `package', `version', and `commit-message' (the
-shape `check-commit-message.sh' enforces)."
+(main file basename), `package' and `version'."
   (setq args (delete "--" (copy-sequence args)))
   (let ((key (car args)))
     (princ
@@ -216,5 +171,4 @@ shape `check-commit-message.sh' enforces)."
        ("main" (file-name-nondirectory (p/main-file)))
        ("package" (p/package-name))
        ("version" (or (p/package-version) ""))
-       ("commit-message" (p/export-commit-message) "")
        (_ (error "Unknown export key: %S" key))))))

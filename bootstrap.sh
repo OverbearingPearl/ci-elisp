@@ -118,18 +118,11 @@ fi
 
 if [ "$github_only" = 0 ] && [ -e ".pre-commit-config.yaml" ] && [ "$force" = 0 ]; then
   echo "kept .pre-commit-config.yaml (exists; --force replaces it)"
-  if grep -qE 'commit-msg|commit-message' .pre-commit-config.yaml; then
-    echo "  it has a commit-message hook of its own; ci's is not added, so its rules win"
-  else
-    echo "  it has no commit-msg hook, so ci's message check is not installed"
-    echo "  add ci/check-commit-message.sh to it if you want the shape from config/ci.el"
-  fi
 elif [ "$github_only" = 0 ]; then
   cat > .pre-commit-config.yaml <<'YAML'
-# Local hooks only. The message style is prose in whatever file you keep it in
-# (pi reads .pi/ai-git-commit.json); the hook enforces only the shape, which
-# comes from :commit-message in config/ci.el. The other two hooks are the gates
-# the suite provides.
+# Local hooks only: lint gates a commit, tests gate a push. Commit-message
+# style belongs to the project, so no message hook is written here; add
+# ci/check-commit-message.sh to this file if you want its checks.
 minimum_pre_commit_version: '3.0.0'
 fail_fast: true
 repos:
@@ -143,12 +136,6 @@ repos:
         pass_filenames: false
         require_serial: true
 
-      - id: commit-message
-        name: commit message shape
-        entry: ci/check-commit-message.sh
-        language: system
-        stages: [commit-msg]
-
       # A commit may be rough; a push should be clean.
       - id: tests
         name: ERT (identical to CI test)
@@ -159,7 +146,7 @@ repos:
         require_serial: true
         stages: [pre-push]
 YAML
-  echo "wrote .pre-commit-config.yaml (commit-message shape from config/ci.el)"
+  echo "wrote .pre-commit-config.yaml"
 fi
 
 # GitHub reads workflows from the repository root and nowhere else, so this

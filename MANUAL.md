@@ -450,9 +450,8 @@ signal to build the renderer instead.
 
 ## pre-commit is local-only, on purpose
 
-`.pre-commit-config.yaml` declares three hooks, all local: `make lint` at the
-commit stage, `ci/check-commit-message.sh` at the commit-msg stage and
-`make test` at the push stage. There is no remote hook
+`.pre-commit-config.yaml` declares two hooks, all local: `make lint` at the
+commit stage and `make test` at the push stage. There is no remote hook
 repository, so `pre-commit run --all-files` needs no network, builds no
 virtualenv and starts instantly. That is the point of a local gate: it has to
 work on a plane.
@@ -460,30 +459,27 @@ work on a plane.
 Both stages have to be installed, or the second one silently never runs:
 
 ```sh
-make hooks          # installs all three
+make hooks
 ```
 
-or, by hand: `pre-commit install`, then `--hook-type commit-msg` and
-`--hook-type pre-push`.
+or, by hand: `pre-commit install` and `--hook-type pre-push`.
 
 `pre-commit run --all-files` runs the commit stage only; add
 `--hook-stage pre-push` to exercise the other one without pushing.
 
-The message hook exists because the message rules are prose, in a file that only
-the editor extension reads, so a message written by hand was checked by nothing.
-It enforces the shape a script can see, and that shape is policy:
-`:commit-message` in `ci/config.el` holds the defaults -- a capitalised subject
-with no type prefix and no trailing period, 80 and 60 columns on the subject, 72
-on the body, no marketing words, no "Generated with" and no co-author trailer --
-and a project overrides the keys it writes differently in `config/ci.el`. The
-prose file itself is read by no script.
+Commit-message style belongs to the project, so bootstrap writes no message
+hook. A project that wants the mechanical half of the suite's own rules adds
+`ci/check-commit-message.sh` at the commit-msg stage of its own config; one
+that already has a message hook keeps it, because bootstrap never replaces an
+existing `.pre-commit-config.yaml`. The prose rules stay in whatever file the
+project keeps them in -- `.pi/ai-git-commit.json` here -- and no script reads
+that file.
 
-Who owns the message rules is decided in one place. A project that already has
-a `.pre-commit-config.yaml` keeps it: bootstrap says so and does not add the
-hook, so its own commit-message rule wins and nothing conflicts. A project
-without one gets the hook above; if its prose style differs from the defaults,
-it mirrors the mechanical half into `:commit-message` rather than editing
-`ci/`, which a pull would replace.
+The script itself enforces only what a script can see: a capitalised subject
+with no type prefix and no trailing period, 80/72 columns, no marketing words,
+no "Generated with" and no co-author trailer. It cannot see whether the change
+is one change or whether the body explains why, which is where the rules spend
+most of their words.
 
 The hygiene checks that usually come from `pre-commit-hooks` are part of the
 suite instead, so local and CI enforce the same code:

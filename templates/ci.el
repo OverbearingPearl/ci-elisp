@@ -58,18 +58,6 @@
 ;;                    (filter-gap-spread   :max 25.0)
 ;;                    (json-per-event      :max 0.10))))
 
-;; Commit-message shape, for the local hook. The prose rules (why, one change
-;; per commit) live in whatever file you keep them in -- pi reads
-;; .pi/ai-git-commit.json -- and no script reads that file. The hook sees the
-;; shape, which comes from :commit-message in ci/config.el. Override the keys
-;; that differ, keeping the rest; Conventional Commits, for example, turns the
-;; capital and type-prefix checks off:
-;; (setq p/config
-;;       (plist-put p/config :commit-message
-;;                  (plist-put (plist-put (plist-get p/config :commit-message)
-;;                                        :capitalize nil)
-;;                             :forbid-prefix nil)))
-
 (provide 'ci)
 
 ;;; ci.el ends here

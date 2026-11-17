@@ -1,7 +1,6 @@
 #!/bin/sh
 # Export project metadata derived from ci/config.el and the repository.
-# Usage: ci/config-export.sh KEY, where KEY is submodule, test-dir, vendor,
-# main, package, version, or commit-message.
+# Usage: ci/config-export.sh versions|lint|package|version
 set -eu
 
 here=$(cd "$(dirname "$0")" && pwd)
