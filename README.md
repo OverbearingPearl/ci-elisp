@@ -25,7 +25,8 @@ hooks when it is the one that wrote their config, and runs a first `make lint`,
 saying either that the package is clean or which message is the first to fix.
 Hooks are a question of ownership rather than of what is installed: a project
 that already has `.pre-commit-config.yaml` or hooks in `.git/hooks` keeps them
-and bootstrap only says so; `--force` takes them over. `pre-commit` itself is
+and bootstrap only says so; `--force` takes them over. The three hooks it
+writes are the message check, lint and tests. `pre-commit` itself is
 never installed -- without it the hooks are written but not installed, and the
 script says which command to run. The
 check table is generated here because `make lint` verifies it: without it the

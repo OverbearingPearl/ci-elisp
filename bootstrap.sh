@@ -25,7 +25,8 @@ What it writes, and what to do with each:
   Makefile                  make lint | test | perf | hooks | checks-doc
   CHECKS.md                 the check table, generated from ci/checks/ here
                             and verified by `make lint` from then on
-  .pre-commit-config.yaml   lint before a commit, tests before a push
+  .pre-commit-config.yaml   the message before it is created, lint before a
+                            commit, tests before a push
   config/ci.el              the Emacs version this package claims; every other
                             knob of ci/config.el can be overridden there too
   .github/                  with --github: the two gates, lint and test
@@ -157,9 +158,10 @@ elif [ -n "$have_hooks" ] && [ "$force" = 0 ]; then
   echo "  --force writes ci's config and installs its hooks over them"
 else
   cat > .pre-commit-config.yaml <<'YAML'
-# Local hooks only: lint gates a commit, tests gate a push. Commit-message
-# style belongs to the project, so no message hook is written here; add
-# ci/check-commit-message.sh to this file if you want its checks.
+# Local hooks only: the message is checked before it exists, lint before a
+# commit, tests before a push. The message shape is ci/check-commit-message.sh
+# and is not configurable; this file is the project's now, so drop that hook or
+# point it at your own script if your rules differ.
 minimum_pre_commit_version: '3.0.0'
 fail_fast: true
 repos:
@@ -172,6 +174,12 @@ repos:
         always_run: true
         pass_filenames: false
         require_serial: true
+
+      - id: commit-message
+        name: commit message shape
+        entry: ci/check-commit-message.sh
+        language: system
+        stages: [commit-msg]
 
       # A commit may be rough; a push should be clean.
       - id: tests

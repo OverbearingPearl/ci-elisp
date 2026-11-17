@@ -450,28 +450,36 @@ signal to build the renderer instead.
 
 ## pre-commit is local-only, on purpose
 
-`.pre-commit-config.yaml` declares two hooks, all local: `make lint` at the
-commit stage and `make test` at the push stage. There is no remote hook
-repository, so `pre-commit run --all-files` needs no network, builds no
-virtualenv and starts instantly. That is the point of a local gate: it has to
-work on a plane.
+`.pre-commit-config.yaml` declares three hooks, all local: `make lint` at the
+commit stage, `ci/check-commit-message.sh` at the commit-msg stage and
+`make test` at the push stage. There is no remote hook repository, so
+`pre-commit run --all-files` needs no network, builds no virtualenv and starts
+instantly. That is the point of a local gate: it has to work on a plane.
 
 Both stages have to be installed, or the second one silently never runs:
 
 ```sh
-make hooks
+make hooks          # installs all three
 ```
 
-or, by hand: `pre-commit install` and `--hook-type pre-push`.
+or, by hand: `pre-commit install`, then `--hook-type commit-msg` and
+`--hook-type pre-push`.
 
 `pre-commit run --all-files` runs the commit stage only; add
 `--hook-stage pre-push` to exercise the other one without pushing.
 
-Commit-message style belongs to the project, so bootstrap writes no message
-hook. A project that wants the mechanical half of the suite's own rules adds
-`ci/check-commit-message.sh` at the commit-msg stage of its own config. The
-prose rules stay in whatever file the project keeps them in -- here
-`.pi/ai-git-commit.json` -- and no script reads that file.
+The message hook enforces a fixed shape, because the alternative was worse:
+once the hook reads its rules from configuration, changing one line means
+tracing a plist through an export script into shell. The shape is the one
+`ci/check-commit-message.sh` writes down -- capital subject, no type prefix,
+80/72 columns -- and the prose rules stay in the project's own file, here
+`.pi/ai-git-commit.json`, which no script reads.
+
+So a project whose messages follow different rules does one of two things,
+both of which the ownership rule above makes safe. It defines its own hooks,
+in which case bootstrap never touches them; or it edits the
+`.pre-commit-config.yaml` bootstrap wrote, which is a project file from then on
+and is never rewritten.
 
 Who owns the hooks decides what bootstrap does, and it asks two questions:
 
@@ -480,7 +488,7 @@ Who owns the hooks decides what bootstrap does, and it asks two questions:
 | `pre-commit` not on PATH | writes the config, installs nothing, says which command to run |
 | `.pre-commit-config.yaml` | keeps it, installs nothing, points at `make hooks` |
 | hooks in `.git/hooks` but no config | keeps them, writes no config, installs nothing |
-| neither | writes the config, installs it with `make hooks` |
+| neither | writes the config, installs all three hooks with `make hooks` |
 
 `--force` answers "take ci's hooks" for the two middle rows. It does not make
 `pre-commit` appear; without the tool the config is a file that nothing runs.
