@@ -3,43 +3,79 @@
 ## Layout the policy assumes
 
 ```
-<pkg>.el           the package entry point, the only .el at the repo root
-lisp/*.el          business modules
-test/*.el          test modules (-tests suffix recommended)
-vendor/**/*.el     vendored packages, checked for whitespace and nothing else
+<pkg>.el            the package entry point, the only .el at the repo root
+lisp/<pkg>-*.el     business modules; the package prefix is required
+test/*-tests.el     test modules; the package prefix is forbidden
+vendor/**/*.el      vendored packages, checked for whitespace and nothing else
 ```
 
 The root directory holds exactly one `.el` file; anything else is a
-violation with a explicit message rather than a file that silently escapes
+violation with a clear message rather than a file that silently escapes
 the checks.  The main file does not have to be named after the repository:
-it is discovered, not assumed.
+it is discovered, not assumed -- and its base name *is* the package name.
+
+## Naming
+
+Three strings have to agree, and the suite checks the two adjacent pairs
+rather than the transitive one:
+
+| string | example | the rule |
+|---|---|---|
+| package name | `pkg` | it is the main module's name, by definition |
+| module name | `pkg-loop`, `loop-tests` | starts with `<pkg>-` under `lisp/`, and nowhere else |
+| definition name | `pkg-loop-step`, `loop-tests-step` | carries the module's full name |
+
+`module-prefix` answers the first pair, per class: required in `lisp/`
+because those modules are published, forbidden in `test/` and `ci/` because
+they are not, and repeating the package name in every test file name is
+noise.  `definition-prefix` answers the second pair: the prefix is the
+whole module name, not just the package name, so a definition says which
+module a failure came from.  `test-suffix` adds the one suffix rule:
+`test/` modules end in `-tests`.
+
+Nothing compares a definition with the package name directly, and nothing
+needs to: the package prefix is on the module name (`module-prefix`) and
+the module name is on the definition (`definition-prefix`).
+
+`vendor/` is exempt from all three.  It carries somebody else's package
+prefix, and its file names and definitions are not ours to change.  The
+tooling under `ci/` is exempt from `definition-prefix` for a related
+reason: it is shared code that must not name the package at all
+(`project-neutral`), so its definitions use the suite's own prefix.
+
+A business module needs a name after the prefix: `lisp/<pkg>-.el` and
+`lisp/<pkg>--name.el` both fail, because the module name would be empty or
+start with a dash.  Inside any module, `defcustom`, `defvar`, `defun`,
+macros, aliases and ERT tests follow the same rule, and a minor mode also
+ends in `-mode`.
+
+### The main module
+
+The package name is read from the main file -- `p/package-name` is its base
+name -- so the main module and the package are the same string and there
+is nothing to compare.  The one naming exception sits here: the main
+module may define an entry command named exactly `<pkg>`, because that is
+what users type.
 
 ### Test modules
 
-Test modules are the only place where naming is free: neither the file name
-nor the definitions inside it need a `<pkg>-` prefix. Three checks relax for
-them, all for the same reason — a test module is not published:
+A test module is not published, so the package prefix is forbidden there;
+its name is free in every other way, but its definitions are prefixed with
+the module name like anywhere else (`loop-tests-...`).  The `-tests` suffix
+is required, and it earns its place twice: MELPA's default file spec
+excludes `*-tests.el`, so tests never reach a published tarball, and the
+suffix marks a file as a test without opening it.
+
+Two checks relax for `test/`, both because a test is not published:
 
 | relaxed for `test/` | why |
 |---|---|
-| `module-prefix` | namespacing exists to avoid clashes between published modules |
-| `package-lint` | it models a published package; its prefix rule would reject plain test names |
+| `package-lint` | it models a published package; its prefix rule would ask for the package prefix |
 | `byte-compile`, `lexical` warnings | the "dynamic var lacks a prefix" warning is the same convention |
 
 Everything else still applies: whitespace, heading comments, banned
 constructs, byte-compilation, checkdoc, header rules, `provide` matching the
 file name, dependency direction.
-
-A suffix is still recommended, and the reason is mechanical rather than
-stylistic: every module must `(provide)` a feature named after its own file, so
-`test/<name>.el` would provide the same feature as `lisp/<name>.el` and the two
-would shadow each other on `load-path`.
-
-Plural or singular is not decided by the packaging argument, which is worth
-stating correctly: MELPA's default files spec excludes both `*-test.el` and
-`*-tests.el`, so either keeps tests out of the tarball. It is convention, and
-`-tests` is what Emacs itself writes (`test/lisp/foo-tests.el` against
-`lisp/foo.el`) and what the rest of this repository says.
 
 ### One header list, three views
 
@@ -155,7 +191,8 @@ record whose status says superseded belongs in `superseded/`, and one in
 A directory of third-party files is a class of its own, because the rules for
 our source are wrong for somebody else's: the headers belong to its author,
 the Commentary is not ours to shorten, and its file names carry its package
-prefix rather than ours.
+prefix rather than ours.  That last fact is why the naming checks skip the
+class entirely.
 
 | key | default | what it decides |
 |---|---|---|
@@ -184,8 +221,9 @@ above it.
 | `:layers` | nil | layer name -> the module names in it |
 | `:layer-may-require` | nil | layer name -> the layers it may require |
 
-The module name is the file name without the package prefix, so `loop`
-answers for `lisp/<pkg>-loop.el`, and `:layer-may-require` does not have to
+The module name is the file name without the package prefix (`module-prefix`
+already guarantees that shape), so `loop` answers for `lisp/<pkg>-loop.el`,
+and `:layer-may-require` does not have to
 list the layer itself: a layer may always require its own.
 
 ```elisp
