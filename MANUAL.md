@@ -209,6 +209,12 @@ one or two, since section names carry the meaning and templates disagree about
 level. MADR constrains content only -- no directory, no file name -- so
 accepting it costs the naming rule nothing.
 
+Whichever shape a record takes, two parts are required and neither is in MADR's
+or Nygard's minimum: a section naming the routes that were not taken, and a
+line beginning `Cost:` in the consequences. A record without them reads as
+notes about a decision -- the author knew the answer, so the alternatives and
+the price are what they skipped writing down.
+
 `decisions.md` is the table of contents a recording tool writes, and `0000-*`
 is a template; neither is checked. Numbers are unique across the directory and
 `superseded/`, because the number is the reference a later record uses. A
