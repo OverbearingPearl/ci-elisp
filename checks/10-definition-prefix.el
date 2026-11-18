@@ -30,6 +30,14 @@ KIND is the defining form, IS-MAIN says the module is the main one, and
 REPO is the package name."
   (and is-main (eq kind 'defun) (string= name repo)))
 
+(defun p/definition-name (form)
+  "Return the symbol FORM names, or nil when it has no name.
+`defalias' takes its name quoted; it is read the same way here."
+  (let ((name (cadr form)))
+    (if (and (consp name) (eq (car name) 'quote))
+        (cadr name)
+      name)))
+
 (defun p/minor-mode-name-ok-p (name prefix)
   "Return non-nil when NAME is a minor mode under PREFIX."
   (and (string-prefix-p prefix name)
@@ -44,7 +52,7 @@ REPO is the package name."
     (pcase-dolist (`(,form . ,line) (p/top-level-forms file))
       (when (consp form)
         (let ((kind (car form))
-              (name (cadr form)))
+              (name (p/definition-name form)))
           (when (symbolp name)
             (let ((nm (symbol-name name)))
               (cond
@@ -57,6 +65,6 @@ REPO is the package name."
                ((eq kind 'define-minor-mode)
                 (unless (p/minor-mode-name-ok-p nm prefix)
                   (p/add-error check file line
-                               (concat "minor mode `" name
+                               (concat "minor mode `" nm
                                        "' must start with `" prefix
                                        "' and end with `-mode'"))))))))))))
