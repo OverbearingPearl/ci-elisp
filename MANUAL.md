@@ -281,6 +281,30 @@ A business module that is missing from `:layers` is reported rather than
 exempted, because an undeclared module is the one a reviewer forgets to
 place.  Nil disables the check.
 
+## Stubs, and the map that outlives its modules
+
+A project that writes its tests before its code needs a stand-in for each
+function the stories call. The usual one is a map of names to a placeholder
+that only defines a function which is not already defined, and it rots in
+silence: once the module lands, the placeholder is harmless, the story passes
+against the real code, and nothing says the entry is still there.
+
+A project can name such a map, and then a stubbed name that a module now
+defines is reported:
+
+```elisp
+:stubs (:file "test/support-tests.el"
+        :form support-tests--stub
+        :sources ("lisp"))
+```
+
+`:file` is the map, `:form` is the placeholder call, and `:sources` are the
+directories holding real definitions -- `:submodule-dir` when it is left out.
+The map itself is never read as a source, because the map defines every name
+it lists.
+
+A project with no `:stubs` key has no stubs and no rule.
+
 ## Layers
 
 
