@@ -8,8 +8,10 @@
 ;; `pkg-loop-...', and `test/loop-tests.el' defines `loop-tests-...'.
 ;;
 ;; The rule is the same for functions, variables, macros, aliases,
-;; customisations and ERT tests, and minor modes additionally end in
-;; `-mode'.  Two exemptions:
+;; customisations, ERT tests, structs, classes and generics, and modes
+;; additionally end in `-mode'.  `cl-defmethod' is not covered on purpose:
+;; its name belongs to the generic it extends, which may be another
+;; package's.  Two exemptions:
 ;;
 ;;   - the main module may define an entry command named exactly the
 ;;     package, because that is what users type;
@@ -32,14 +34,16 @@ REPO is the package name."
 
 (defun p/definition-name (form)
   "Return the symbol FORM names, or nil when it has no name.
-`defalias' takes its name quoted; it is read the same way here."
+`defalias' takes its name quoted, and `cl-defstruct' accepts either a
+symbol or a cons of name and options; both are read the same way here."
   (let ((name (cadr form)))
-    (if (and (consp name) (eq (car name) 'quote))
-        (cadr name)
-      name)))
+    (cond
+     ((and (consp name) (eq (car name) 'quote)) (cadr name))
+     ((and (eq (car form) 'cl-defstruct) (consp name)) (car name))
+     (t name))))
 
-(defun p/minor-mode-name-ok-p (name prefix)
-  "Return non-nil when NAME is a minor mode under PREFIX."
+(defun p/mode-name-ok-p (name prefix)
+  "Return non-nil when NAME is a mode under PREFIX."
   (and (string-prefix-p prefix name)
        (string-suffix-p "-mode" name)))
 
@@ -62,9 +66,12 @@ REPO is the package name."
                   (p/add-error check file line
                                (format "`%s' must start with `%s'"
                                        name prefix))))
-               ((eq kind 'define-minor-mode)
-                (unless (p/minor-mode-name-ok-p nm prefix)
+               ((memq kind '(define-minor-mode define-derived-mode))
+                (unless (p/mode-name-ok-p nm prefix)
                   (p/add-error check file line
-                               (concat "minor mode `" nm
+                               (concat (if (eq kind 'define-minor-mode)
+                                           "minor mode"
+                                         "mode")
+                                       " `" nm
                                        "' must start with `" prefix
                                        "' and end with `-mode'"))))))))))))
