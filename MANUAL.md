@@ -259,13 +259,14 @@ above it.
 
 | key | default | what it decides |
 |---|---|---|
-| `:layers` | nil | layer name -> the module names in it |
-| `:layer-may-require` | nil | layer name -> the layers it may require |
+| `:layers` | nil | layer name -> the module names in it, top of the stack first |
+| `:layer-may-require` | nil | layer name -> the layers it may require, for a shape that is not a stack |
 
 The module name is the file name without the package prefix (`module-prefix`
-already guarantees that shape), so `loop` answers for `lisp/<pkg>-loop.el`,
-and `:layer-may-require` does not have to
-list the layer itself: a layer may always require its own.
+already guarantees that shape), so `loop` answers for `lisp/<pkg>-loop.el`.
+
+The order of `:layers` is the direction: a layer may require itself and every
+layer listed above it. A stack therefore needs one table, not two.
 
 ```elisp
 (setq p/config
@@ -273,10 +274,10 @@ list the layer itself: a layer may always require its own.
                  '((core contract loop session)
                    (adapters provider-sse session-jsonl)
                    (product console tools undo))))
-(setq p/config
-      (plist-put p/config :layer-may-require
-                 '((core) (adapters core) (product core adapters))))
 ```
+
+`:layer-may-require` is for the case the order cannot express -- two layers
+at the same depth that may not see each other -- and wins over it when set.
 
 A business module that is missing from `:layers` is reported rather than
 exempted, because an undeclared module is the one a reviewer forgets to
@@ -650,7 +651,10 @@ benchmark of our own exists.
 
 `make size` prints two things: what each module costs, and where the same run
 of lines sits twice. The measuring is in `ci/size.el`; where it looks is the
-`:size` table of `ci/config.el`, next to every other policy number.
+`:size` table of `ci/config.el`, next to every other policy number. The
+default is `lisp/` plus the repository root, which counts a package's entry
+point as the module it is; a second table in `config/ci.el` is only needed
+when the layout or the run length differs.
 
 ```
 size: 4210 lines in 14 modules, 163 definitions

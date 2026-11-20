@@ -35,10 +35,11 @@
 
     ;; Module layers, when the architecture has them.  `:layers' maps a layer
     ;; name to the module names inside it -- the module name is the file name
-    ;; without the package prefix -- and `:layer-may-require' lists, per layer,
-    ;; the layers it may require.  A layer may always require itself.  Nil
-    ;; disables `layer-order'; a business module missing from `:layers' is
-    ;; reported rather than exempted.
+    ;; without the package prefix.  The order is the direction: a layer may
+    ;; require itself and any layer listed above it, so a stack needs no second
+    ;; table.  `:layer-may-require' is for a shape that is not a stack and
+    ;; wins over the order when set.  Nil `:layers' disables `layer-order'; a
+    ;; business module missing from it is reported rather than exempted.
     :layers nil
     :layer-may-require nil
 
@@ -145,7 +146,7 @@
     ;; (three is a shape two modules share by accident); `:large' is the
     ;; length at which a module is named, and `:shown' how many runs are
     ;; printed, because a list nobody finishes reading is a list nobody reads.
-    :size (:directories ("lisp")
+    :size (:directories ("lisp" ".")
            :window 4
            :large 300
            :shown 20

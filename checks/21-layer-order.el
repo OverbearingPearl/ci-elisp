@@ -7,14 +7,16 @@
 ;; The class profiles in `:profiles' cannot express that, because every
 ;; business module is of class `business'.
 ;;
-;; A project declares the layers once, in `config/ci.el':
+;; A project declares its layers once, in `config/ci.el', top of the stack
+;; first.  The order is the direction -- a layer may require itself and any
+;; layer above it -- so a stack needs no second table:
 ;;
-;;   :layers           ((core contract loop session)
-;;                      (adapters provider-sse session-jsonl)
-;;                      (product console tools undo))
-;;   :layer-may-require ((core)
-;;                      (adapters core)
-;;                      (product core adapters))
+;;   :layers ((core contract loop session)
+;;            (adapters provider-sse session-jsonl)
+;;            (product console tools undo))
+;;
+;; A shape that is not a stack -- two layers at the same depth that may not
+;; see each other -- sets `:layer-may-require' and that table wins.
 ;;
 ;; The module name is the file name without the package prefix, so `loop'
 ;; answers for `lisp/<pkg>-loop.el' -- a shape `module-prefix' already
@@ -43,8 +45,21 @@
       base)))
 
 (defun p/layer-may-require (layer)
-  "Return the layers LAYER may require: its own and those configured."
-  (cons layer (cdr (assq layer (p/config-value :layer-may-require)))))
+  "Return the layers LAYER may require: its own and the ones above it.
+The order of `:layers' is the direction, so `(adapters core)' in a stack
+written `(core ...) (adapters ...)' is derived rather than written twice.  A
+project whose layers are not a stack sets `:layer-may-require', and that
+table answers instead."
+  (let ((explicit (assq layer (p/config-value :layer-may-require))))
+    (if explicit
+        (cons layer (cdr explicit))
+      (let ((above nil))
+        (catch 'found
+          (dolist (entry (p/config-value :layers))
+            (push (car entry) above)
+            (when (eq (car entry) layer) (throw 'found t)))
+          nil)
+        above))))
 
 (p/defcheck-global layer-order :scope "business modules: the :layers table"
   "A module may only require modules of its own layer or a lower one."
