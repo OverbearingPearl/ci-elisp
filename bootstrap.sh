@@ -56,11 +56,12 @@ for arg in "$@"; do
   esac
 done
 
-# What this run wrote, and what was already dirty before it did: the report at
-# the end names the first and stays quiet about the second, so a file somebody
-# was editing is not reported as bootstrap's doing.
+# What this run wrote, and which of those already had uncommitted changes
+# when it got there. The report names every path this run wrote -- a replaced
+# file whose work tree already differed is exactly the case worth reading --
+# and says which of them the diff mixes with somebody's earlier edit.
 touched=""
-pre_dirty=""
+dirty_before=""
 
 
 # Three ways this script is run from a place where its output would be wrong.
@@ -120,8 +121,13 @@ write() {
     esac
     return 0
   fi
-  [ -z "$(git status --porcelain -- "$target" 2>/dev/null)" ] || \
-    pre_dirty="$pre_dirty $target"
+  if [ -n "$(git status --porcelain -- "$target" 2>/dev/null)" ]; then
+    dirty_before="$dirty_before $target"
+    printf 'warning: %s has uncommitted changes, and --force replaces them\n' \
+      "$target"
+    printf '  keep a copy first: git stash push -- %s, or git diff -- %s\n' \
+      "$target" "$target"
+  fi
   mkdir -p "$(dirname "$target")"
   cp "$source" "$target"
   echo "wrote $target"
@@ -219,8 +225,11 @@ if [ -d .github ] && [ "$force" = 0 ]; then
     echo "  (that deletes every workflow already in .github/)"
   fi
 else
-  [ -z "$(git status --porcelain -- .github 2>/dev/null)" ] || \
-    pre_dirty="$pre_dirty .github"
+  if [ -n "$(git status --porcelain -- .github 2>/dev/null)" ]; then
+    dirty_before="$dirty_before .github"
+    echo "warning: .github/ has uncommitted changes, and --force replaces them"
+    echo "  keep a copy first: git stash push -- .github"
+  fi
   rm -rf .github
   cp -R "$here/templates/github" .github
   echo "wrote .github/ (ci, perf and release; melpazoid is a manual job)"
@@ -267,7 +276,6 @@ report_changes() {
   [ -n "$touched" ] || return 0
   changed=""
   for path in $touched; do
-    case " $pre_dirty " in *" $path "*) continue ;; esac
     [ -n "$(git status --porcelain -- "$path" 2>/dev/null)" ] || continue
     changed="$changed $path"
   done
@@ -282,6 +290,10 @@ report_changes() {
   case $status in
     *'??'*) printf '  (a new file has nothing to diff yet: git add -N it first)\n' ;;
   esac
+  if [ -n "$dirty_before" ]; then
+    printf '  (%s already differed from HEAD before this run; the diff mixes both)\n' \
+      "$(echo $dirty_before)"
+  fi
 }
 
 report_changes

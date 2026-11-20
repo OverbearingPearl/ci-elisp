@@ -582,9 +582,13 @@ own that copy -- the `kept` message names the file and how far it differs.
 
 A run that replaced something ends by printing what it replaced: the paths
 from `git status --short`, a `git diff --stat` of their size, and the command
-that shows the rest. It is short on purpose -- five lines a reader finishes --
-and it leaves out a file that was already dirty before the run started, which
-is not bootstrap's doing.
+that shows the rest. It is short on purpose -- five lines a reader finishes.
+
+It lists every path it wrote, including one that already had uncommitted
+changes: `--force` discarded those changes, so the diff against `HEAD` is the
+only record of them, and hiding it would hide the one conflict worth seeing.
+A warning says so before the file is replaced, because a report afterwards is
+too late to keep a copy.
 
 The script itself enforces only what a script can see: a capitalised subject
 with no type prefix and no trailing period, 80/72 columns, no marketing words,
