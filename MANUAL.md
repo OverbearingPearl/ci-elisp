@@ -517,9 +517,13 @@ signal to build the renderer instead.
 
 `.pre-commit-config.yaml` declares three hooks, all local: `make lint` at the
 commit stage, `ci/check-commit-message.sh` at the commit-msg stage and
-`make test` at the push stage. There is no remote hook repository, so
-`pre-commit run --all-files` needs no network, builds no virtualenv and starts
-instantly. That is the point of a local gate: it has to work on a plane.
+`make test` at the push stage. Each hook names its stage, and none is left
+to default: a hook without a `stages` key belongs to every stage pre-commit
+knows, and git calls two of them on a commit, so an undeclared `checks` runs
+the whole lint twice before the message is even read. There is no remote hook
+repository, so `pre-commit run --all-files` needs no network, builds no
+virtualenv and starts instantly. That is the point of a local gate: it has to
+work on a plane.
 
 Both stages have to be installed, or the second one silently never runs:
 

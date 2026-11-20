@@ -169,6 +169,7 @@ repos:
         name: checks (identical to CI lint)
         entry: make lint
         language: system
+        stages: [pre-commit]
         always_run: true
         pass_filenames: false
         require_serial: true
