@@ -104,7 +104,8 @@ write() {
       case $target in
         Makefile|config/ci.el)
           echo "  this file is the project's once written; --force does not replace it"
-          echo "  copy $source over it to take the new version" ;;
+          echo "  read the difference with: diff $source $target"
+          echo "  take what you want from it; copying it over would drop what is yours" ;;
         *)
           echo "  copy $source over it to take the new version; --force does the same" ;;
       esac
@@ -119,6 +120,10 @@ write() {
         }
         ;;
     esac
+    return 0
+  fi
+  if cmp -s "$source" "$target"; then
+    echo "kept $target (already the template's)"
     return 0
   fi
   if [ -n "$(git status --porcelain -- "$target" 2>/dev/null)" ]; then
@@ -172,7 +177,8 @@ elif [ -n "$have_hooks" ] && [ "$force" = 0 ]; then
   echo "  no .pre-commit-config.yaml was written and none were installed"
   echo "  --force writes ci's config and installs its hooks over them"
 else
-  cat > .pre-commit-config.yaml <<'YAML'
+  config_staged=$(mktemp "${TMPDIR:-/tmp}/pre-commit-config.XXXXXX")
+  cat > "$config_staged" <<'YAML'
 # Local hooks only: the message is checked before it exists, lint before a
 # commit, tests before a push. The message shape is ci/check-commit-message.sh
 # and is not configurable; this file is the project's now, so drop that hook or
@@ -207,25 +213,39 @@ repos:
         require_serial: true
         stages: [pre-push]
 YAML
-  echo "wrote .pre-commit-config.yaml"
+  # The same three rules as every other file: report it if it differs, say so
+  # before replacing uncommitted work, and leave an identical copy alone.
+  if cmp -s "$config_staged" .pre-commit-config.yaml 2>/dev/null; then
+    echo "kept .pre-commit-config.yaml (already ci's)"
+  else
+    if [ -e .pre-commit-config.yaml ] &&
+       [ -n "$(git status --porcelain -- .pre-commit-config.yaml 2>/dev/null)" ]; then
+      dirty_before="$dirty_before .pre-commit-config.yaml"
+      echo "warning: .pre-commit-config.yaml has uncommitted changes, and"
+      echo "  --force replaces them; keep a copy first:"
+      echo "  git stash push -- .pre-commit-config.yaml"
+    fi
+    mv "$config_staged" .pre-commit-config.yaml
+    echo "wrote .pre-commit-config.yaml"
+    touched="$touched .pre-commit-config.yaml"
+  fi
+  rm -f "$config_staged"
   install_hooks=1
 fi
 
 # GitHub reads workflows from the repository root and nowhere else, so this
 # part cannot travel in ci/: it is copied, once, and it is a copy the project
 # can edit afterwards.
-if [ -d .github ] && [ "$force" = 0 ]; then
-  differ=$(diff -rq "$here/templates/github" .github 2>/dev/null | wc -l | tr -d ' ')
+differ=$(diff -rq "$here/templates/github" .github 2>/dev/null | wc -l | tr -d ' ')
+if [ "$differ" = 0 ] && [ -d .github ]; then
+  echo "kept .github/ (already the template's)"
+elif [ -d .github ] && [ "$force" = 0 ]; then
   echo "kept .github/ (exists; --force replaces it)"
-  if [ "$differ" = 0 ]; then
-    echo "  same as the template"
-  else
-    echo "  differs from ci/templates/github/ in $differ places"
-    echo "  copy the files you want by hand; --force replaces the whole directory"
-    echo "  (that deletes every workflow already in .github/)"
-  fi
+  echo "  differs from ci/templates/github/ in $differ places"
+  echo "  copy the files you want by hand; --force replaces the whole directory"
+  echo "  (that deletes every workflow already in .github/)"
 else
-  if [ -n "$(git status --porcelain -- .github 2>/dev/null)" ]; then
+  if [ -d .github ] && [ -n "$(git status --porcelain -- .github 2>/dev/null)" ]; then
     dirty_before="$dirty_before .github"
     echo "warning: .github/ has uncommitted changes, and --force replaces them"
     echo "  keep a copy first: git stash push -- .github"
@@ -236,9 +256,6 @@ else
   touched="$touched .github"
 fi
 
-# Installing the hooks is the step people skip, and a hook whose stage was
-# never installed fails silently. Do it here, but only for hooks this run
-# wrote: a project's own setup was reported above and is left alone.
 if [ "$install_hooks" = 1 ]; then
   if command -v pre-commit >/dev/null 2>&1; then
     echo
@@ -279,7 +296,13 @@ report_changes() {
     [ -n "$(git status --porcelain -- "$path" 2>/dev/null)" ] || continue
     changed="$changed $path"
   done
-  [ -n "$changed" ] || return 0
+  if [ -z "$changed" ]; then
+    printf '\nwhat this run wrote matches HEAD: nothing to review\n'
+    if [ -n "$dirty_before" ]; then
+      printf '  (it replaced uncommitted changes; they are gone, as the warning said)\n'
+    fi
+    return 0
+  fi
   status=$(git status --short -- $changed)
   files=$(printf '%s\n' "$status" | cut -c4- | sed 's/.* -> //')
   printf '\nwritten, and not committed:\n'
