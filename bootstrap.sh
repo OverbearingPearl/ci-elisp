@@ -16,7 +16,9 @@ Writes the files a project owns. Run it once after adding ci/ as a subtree,
 and again only when a pull changes a template.
 
   --force        overwrite files that already exist, and take over the git
-                 hooks even when the project has its own
+                 hooks even when the project has its own.  It never replaces
+                 the Makefile or config/ci.el: those are the project's, and
+                 project targets belong in config/targets.mk anyway
   --github       also copy ci/templates/github/ to .github/
   --github-only  only do that; leaves the Makefile and the config alone
   --help         this text
@@ -89,21 +91,28 @@ missing_targets() {
 write() {
   target=$1
   source=$2
-  if [ -e "$target" ] && [ "$force" = 0 ]; then
+  if [ -e "$target" ] && { [ "$force" = 0 ] || [ "$target" = "Makefile" ] ||
+       [ "$target" = "config/ci.el" ]; }; then
     if cmp -s "$source" "$target"; then
       echo "kept $target (same as the template)"
     else
       changed=$(diff "$source" "$target" | grep -c '^[<>]')
       echo "kept $target (differs from the template by $changed lines)"
-      echo "  copy $source over it to take the new version; --force does the same"
+      case $target in
+        Makefile|config/ci.el)
+          echo "  this file is the project's once written; --force does not replace it"
+          echo "  copy $source over it to take the new version" ;;
+        *)
+          echo "  copy $source over it to take the new version; --force does the same" ;;
+      esac
     fi
     case $target in
       Makefile)
         absent=$(missing_targets "$target")
         [ -z "$absent" ] || {
           echo "  it has no$absent target, which is what the hooks and CI call"
-          echo "  add them from ci/templates/Makefile, or --force to replace the file"
-          echo "  (that discards any target this file already has)"
+          echo "  add them from ci/templates/Makefile, and put this project's own"
+          echo "  targets in config/targets.mk, which the template includes"
         }
         ;;
     esac

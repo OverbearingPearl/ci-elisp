@@ -562,6 +562,23 @@ Who owns the hooks decides what bootstrap does, and it asks two questions:
 `--force` answers "take ci's hooks" for the two middle rows. It does not make
 `pre-commit` appear; without the tool the config is a file that nothing runs.
 
+## What --force will not replace
+
+Two files are written once and are the project's from then on: the `Makefile`
+and `config/ci.el`. `--force` skips them even when it was asked to overwrite
+everything, because both are the sort of file whose loss is silent -- a
+replaced `Makefile` stops running the project's own audit without saying so,
+and a replaced `config/ci.el` takes the layer table with it.
+
+A target of the project's own therefore does not belong in the `Makefile` at
+all. It goes in `config/targets.mk`, which the template includes: a target
+declared there, and the line `lint: <target>`, wire it into `make lint`
+without editing the shared file. `help-extra` is the same for the help text.
+
+The rest is replaceable on purpose: `.pre-commit-config.yaml` and `.github/`
+are copies of ci's templates, and a project that edited them has decided to
+own that copy -- the `kept` message names the file and how far it differs.
+
 The script itself enforces only what a script can see: a capitalised subject
 with no type prefix and no trailing period, 80/72 columns, no marketing words,
 no "Generated with" and no co-author trailer. It cannot see whether the change
