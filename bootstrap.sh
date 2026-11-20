@@ -10,17 +10,16 @@ root=$(cd "$here/.." && pwd)
 
 usage() {
   cat <<'USAGE'
-usage: ci/bootstrap.sh [--force] [--github | --github-only]
+usage: ci/bootstrap.sh [--force]
 
 Writes the files a project owns. Run it once after adding ci/ as a subtree,
 and again only when a pull changes a template.
 
-  --force        overwrite files that already exist, and take over the git
-                 hooks even when the project has its own.  It never replaces
-                 the Makefile or config/ci.el: those are the project's, and
-                 project targets belong in config/targets.mk anyway
-  --github       also copy ci/templates/github/ to .github/
-  --github-only  only do that; leaves the Makefile and the config alone
+  --force        replace what it is allowed to replace: the hook config and
+                 .github/.  It never replaces the Makefile or config/ci.el,
+                 because project targets belong in config/targets.mk and the
+                 config is the project's alone.  It also takes over the git
+                 hooks when the project has its own
   --help         this text
 
 What it writes, and what to do with each:
@@ -29,8 +28,8 @@ What it writes, and what to do with each:
                             commit, tests before a push
   config/ci.el              the Emacs version this package claims; every other
                             knob of ci/config.el can be overridden there too
-  .github/                  with --github: lint, test, size and perf, plus a
-                            manual melpazoid check
+  .github/                  lint, test, size and perf, plus a manual
+                            melpazoid check
 
 Hooks are installed only when this run wrote the hook config: a project that
 already has `.pre-commit-config.yaml`, or hooks in .git/hooks, keeps them, and
@@ -49,17 +48,20 @@ die() {
 }
 
 force=0
-github=0
-github_only=0
 for arg in "$@"; do
   case $arg in
     --force) force=1 ;;
-    --github) github=1 ;;
-    --github-only) github=1; github_only=1 ;;
     -h|--help) usage; exit 0 ;;
     *) die "unknown argument: $arg" "run ci/bootstrap.sh --help" ;;
   esac
 done
+
+# What this run wrote, and what was already dirty before it did: the report at
+# the end names the first and stays quiet about the second, so a file somebody
+# was editing is not reported as bootstrap's doing.
+touched=""
+pre_dirty=""
+
 
 # Three ways this script is run from a place where its output would be wrong.
 [ -d "$root/.git" ] || [ -f "$root/.git" ] || \
@@ -118,17 +120,18 @@ write() {
     esac
     return 0
   fi
+  [ -z "$(git status --porcelain -- "$target" 2>/dev/null)" ] || \
+    pre_dirty="$pre_dirty $target"
   mkdir -p "$(dirname "$target")"
   cp "$source" "$target"
   echo "wrote $target"
+  touched="$touched $target"
 }
 
 cd "$root"
 
-if [ "$github_only" = 0 ]; then
-  write "Makefile" "$here/templates/Makefile"
-  write "config/ci.el" "$here/templates/ci.el"
-fi
+write "Makefile" "$here/templates/Makefile"
+write "config/ci.el" "$here/templates/ci.el"
 
 # Where git keeps this repository's hooks. `--git-path' follows core.hooksPath
 # and worktrees; the fallback is for a git too old to answer.
@@ -154,9 +157,7 @@ have_hooks=$(existing_hooks)
 # supposed to prevent.
 install_hooks=0
 
-if [ "$github_only" = 1 ]; then
-  : # --github-only leaves the Makefile, the config and the hooks alone
-elif [ -e ".pre-commit-config.yaml" ] && [ "$force" = 0 ]; then
+if [ -e ".pre-commit-config.yaml" ] && [ "$force" = 0 ]; then
   echo "kept .pre-commit-config.yaml (exists; --force replaces it)"
   echo "  its hooks are the project's, so none were installed"
   echo "  run \`make hooks' to install them, or --force to take ci's instead"
@@ -205,67 +206,96 @@ YAML
 fi
 
 # GitHub reads workflows from the repository root and nowhere else, so this
-# part cannot travel in ci/: it is copied, and only when asked for.
-if [ "$github" = 1 ]; then
-  if [ -d .github ] && [ "$force" = 0 ]; then
-    differ=$(diff -rq "$here/templates/github" .github 2>/dev/null | wc -l | tr -d ' ')
-    echo "kept .github/ (exists; --force replaces it)"
-    if [ "$differ" = 0 ]; then
-      echo "  same as the template"
-    else
-      echo "  differs from ci/templates/github/ in $differ places"
-      echo "  copy the files you want by hand; --force replaces the whole directory"
-      echo "  (that deletes every workflow already in .github/)"
-    fi
+# part cannot travel in ci/: it is copied, once, and it is a copy the project
+# can edit afterwards.
+if [ -d .github ] && [ "$force" = 0 ]; then
+  differ=$(diff -rq "$here/templates/github" .github 2>/dev/null | wc -l | tr -d ' ')
+  echo "kept .github/ (exists; --force replaces it)"
+  if [ "$differ" = 0 ]; then
+    echo "  same as the template"
   else
-    rm -rf .github
-    cp -R "$here/templates/github" .github
-    echo "wrote .github/ (ci, perf and release; melpazoid is a manual job)"
+    echo "  differs from ci/templates/github/ in $differ places"
+    echo "  copy the files you want by hand; --force replaces the whole directory"
+    echo "  (that deletes every workflow already in .github/)"
+  fi
+else
+  [ -z "$(git status --porcelain -- .github 2>/dev/null)" ] || \
+    pre_dirty="$pre_dirty .github"
+  rm -rf .github
+  cp -R "$here/templates/github" .github
+  echo "wrote .github/ (ci, perf and release; melpazoid is a manual job)"
+  touched="$touched .github"
+fi
+
+# Installing the hooks is the step people skip, and a hook whose stage was
+# never installed fails silently. Do it here, but only for hooks this run
+# wrote: a project's own setup was reported above and is left alone.
+if [ "$install_hooks" = 1 ]; then
+  if command -v pre-commit >/dev/null 2>&1; then
+    echo
+    echo "installing the hooks:"
+    make --no-print-directory hooks
+  else
+    echo
+    echo "pre-commit is not installed, so the hooks are not installed either."
+    echo "  bootstrap does not install pre-commit; install it yourself,"
+    echo "  then run: make hooks"
   fi
 fi
 
-if [ "$github_only" = 0 ]; then
-  # Installing the hooks is the step people skip, and a hook whose stage was
-  # never installed fails silently. Do it here, but only for hooks this run
-  # wrote: a project's own setup was reported above and is left alone.
-  if [ "$install_hooks" = 1 ]; then
-    if command -v pre-commit >/dev/null 2>&1; then
-      echo
-      echo "installing the hooks:"
-      make --no-print-directory hooks
-    else
-      echo
-      echo "pre-commit is not installed, so the hooks are not installed either."
-      echo "  bootstrap does not install pre-commit; install it yourself,"
-      echo "  then run: make hooks"
-    fi
-  fi
-
-  # A first lint is worth having immediately: it either confirms the package
-  # already satisfies the suite or names the first thing to fix.
-  if ls "$root"/*.el >/dev/null 2>&1; then
-    echo
-    echo "first lint:"
-    if make --no-print-directory lint; then
-      echo "  clean"
-    else
-      echo "  the messages above are the first thing to fix; a package that is"
-      echo "  still being written is expected to fail some of them"
-    fi
+# A first lint is worth having immediately: it either confirms the package
+# already satisfies the suite or names the first thing to fix.
+if ls "$root"/*.el >/dev/null 2>&1; then
+  echo
+  echo "first lint:"
+  if make --no-print-directory lint; then
+    echo "  clean"
   else
-    echo
-    echo "no .el at the root yet; make lint will say so once there is one"
+    echo "  the messages above are the first thing to fix; a package that is"
+    echo "  still being written is expected to fail some of them"
   fi
+else
+  echo
+  echo "no .el at the root yet; make lint will say so once there is one"
 fi
+
+# A run that replaced a file leaves a diff in the work tree, and a diff nobody
+# looked at is a change nobody agreed to. Short on purpose: the paths, a stat
+# per file, and the command that shows the rest. A file that was already dirty
+# when this started is not reported here -- it is not this run's doing.
+report_changes() {
+  [ -n "$touched" ] || return 0
+  changed=""
+  for path in $touched; do
+    case " $pre_dirty " in *" $path "*) continue ;; esac
+    [ -n "$(git status --porcelain -- "$path" 2>/dev/null)" ] || continue
+    changed="$changed $path"
+  done
+  [ -n "$changed" ] || return 0
+  status=$(git status --short -- $changed)
+  files=$(printf '%s\n' "$status" | cut -c4- | sed 's/.* -> //')
+  printf '\nwritten, and not committed:\n'
+  printf '%s\n' "$status" | sed 's/^/  /'
+  git diff --stat -- $changed 2>/dev/null | sed 's/^/  /'
+  printf '  review with: git diff --\n'
+  printf '%s\n' "$files" | sed 's/^/    /'
+  case $status in
+    *'??'*) printf '  (a new file has nothing to diff yet: git add -N it first)\n' ;;
+  esac
+}
+
+report_changes
 
 cat <<'NEXT'
 
 What you can change from here:
   config/ci.el      directories, the :perf budgets, the :size policy; nothing
                     has to be set
+  config/targets.mk targets of your own, including the ones `make lint' runs;
+                    the Makefile itself is replaced by a pull, so nothing of
+                    yours belongs in it
   config/perf.el    a benchmark of this package's own hot path (optional)
   config/size.el    a definition count of your own, for `make size' (optional)
-  Makefile          add targets; a pull never touches it
   .github/          add jobs; a pull never touches it
 
 Then keep working: the hooks run lint before a commit, the message checker
