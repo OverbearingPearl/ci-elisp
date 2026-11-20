@@ -580,6 +580,12 @@ The rest is replaceable on purpose: `.pre-commit-config.yaml` and `.github/`
 are copies of ci's templates, and a project that edited them has decided to
 own that copy -- the `kept` message names the file and how far it differs.
 
+A run that replaced something ends by printing what it replaced: the paths
+from `git status --short`, a `git diff --stat` of their size, and the command
+that shows the rest. It is short on purpose -- five lines a reader finishes --
+and it leaves out a file that was already dirty before the run started, which
+is not bootstrap's doing.
+
 The script itself enforces only what a script can see: a capitalised subject
 with no type prefix and no trailing period, 80/72 columns, no marketing words,
 no "Generated with" and no co-author trailer. It cannot see whether the change
