@@ -27,7 +27,8 @@ What it writes, and what to do with each:
                             commit, tests before a push
   config/ci.el              the Emacs version this package claims; every other
                             knob of ci/config.el can be overridden there too
-  .github/                  with --github: three gates, lint, test and size
+  .github/                  with --github: lint, test, size and perf, plus a
+                            manual melpazoid check
 
 Hooks are installed only when this run wrote the hook config: a project that
 already has `.pre-commit-config.yaml`, or hooks in .git/hooks, keeps them, and
@@ -210,7 +211,7 @@ if [ "$github" = 1 ]; then
   else
     rm -rf .github
     cp -R "$here/templates/github" .github
-    echo "wrote .github/ (lint and test; add more jobs by copying them in)"
+    echo "wrote .github/ (ci, perf and release; melpazoid is a manual job)"
   fi
 fi
 
