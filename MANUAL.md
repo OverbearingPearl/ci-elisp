@@ -580,15 +580,16 @@ The rest is replaceable on purpose: `.pre-commit-config.yaml` and `.github/`
 are copies of ci's templates, and a project that edited them has decided to
 own that copy -- the `kept` message names the file and how far it differs.
 
-A run that replaced something ends by printing what it replaced: the paths
-from `git status --short`, a `git diff --stat` of their size, and the command
-that shows the rest. It is short on purpose -- five lines a reader finishes.
+`--force` refuses to replace a file that has uncommitted changes, and says
+which command keeps a copy. Replacing it would leave the diff against `HEAD`
+as the only record of what was lost, and a copy is cheaper than a diff somebody
+has to read afterwards to find out.
 
-It lists every path it wrote, including one that already had uncommitted
-changes: `--force` discarded those changes, so the diff against `HEAD` is the
-only record of them, and hiding it would hide the one conflict worth seeing.
-A warning says so before the file is replaced, because a report afterwards is
-too late to keep a copy.
+A run that wrote something ends by printing what it wrote: the paths from
+`git status --short`, a `git diff --stat` of their size, and the command that
+shows the rest. It is short on purpose -- five lines a reader finishes -- and
+a run that wrote nothing says nothing, because silence then means exactly one
+thing.
 
 The script itself enforces only what a script can see: a capitalised subject
 with no type prefix and no trailing period, 80/72 columns, no marketing words,

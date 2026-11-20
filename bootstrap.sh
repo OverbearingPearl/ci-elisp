@@ -19,7 +19,8 @@ and again only when a pull changes a template.
                  .github/.  It never replaces the Makefile or config/ci.el,
                  because project targets belong in config/targets.mk and the
                  config is the project's alone.  It also takes over the git
-                 hooks when the project has its own
+                 hooks when the project has its own.  It refuses to replace a
+                 file with uncommitted changes; stash or commit them first
   --help         this text
 
 What it writes, and what to do with each:
@@ -56,12 +57,19 @@ for arg in "$@"; do
   esac
 done
 
-# What this run wrote, and which of those already had uncommitted changes
-# when it got there. The report names every path this run wrote -- a replaced
-# file whose work tree already differed is exactly the case worth reading --
-# and says which of them the diff mixes with somebody's earlier edit.
+# What this run wrote. The report at the end names those paths, so a run that
+# changed the work tree never changes it silently.
 touched=""
-dirty_before=""
+
+# --force replaces only what the project has given up, and it refuses to
+# replace work that is not committed: a copy is cheaper than the diff somebody
+# would have to read afterwards to find out what they lost.
+refuse_if_dirty() {
+  [ -n "$(git status --porcelain -- "$1" 2>/dev/null)" ] || return 0
+  die "$1 has uncommitted changes, and --force would replace them" \
+      "keep a copy first: git stash push -- $1" \
+      "or commit them, then run again"
+}
 
 
 # Three ways this script is run from a place where its output would be wrong.
@@ -126,13 +134,7 @@ write() {
     echo "kept $target (already the template's)"
     return 0
   fi
-  if [ -n "$(git status --porcelain -- "$target" 2>/dev/null)" ]; then
-    dirty_before="$dirty_before $target"
-    printf 'warning: %s has uncommitted changes, and --force replaces them\n' \
-      "$target"
-    printf '  keep a copy first: git stash push -- %s, or git diff -- %s\n' \
-      "$target" "$target"
-  fi
+  refuse_if_dirty "$target"
   mkdir -p "$(dirname "$target")"
   cp "$source" "$target"
   echo "wrote $target"
@@ -218,13 +220,7 @@ YAML
   if cmp -s "$config_staged" .pre-commit-config.yaml 2>/dev/null; then
     echo "kept .pre-commit-config.yaml (already ci's)"
   else
-    if [ -e .pre-commit-config.yaml ] &&
-       [ -n "$(git status --porcelain -- .pre-commit-config.yaml 2>/dev/null)" ]; then
-      dirty_before="$dirty_before .pre-commit-config.yaml"
-      echo "warning: .pre-commit-config.yaml has uncommitted changes, and"
-      echo "  --force replaces them; keep a copy first:"
-      echo "  git stash push -- .pre-commit-config.yaml"
-    fi
+    refuse_if_dirty .pre-commit-config.yaml
     mv "$config_staged" .pre-commit-config.yaml
     echo "wrote .pre-commit-config.yaml"
     touched="$touched .pre-commit-config.yaml"
@@ -245,11 +241,7 @@ elif [ -d .github ] && [ "$force" = 0 ]; then
   echo "  copy the files you want by hand; --force replaces the whole directory"
   echo "  (that deletes every workflow already in .github/)"
 else
-  if [ -d .github ] && [ -n "$(git status --porcelain -- .github 2>/dev/null)" ]; then
-    dirty_before="$dirty_before .github"
-    echo "warning: .github/ has uncommitted changes, and --force replaces them"
-    echo "  keep a copy first: git stash push -- .github"
-  fi
+  [ ! -d .github ] || refuse_if_dirty .github
   rm -rf .github
   cp -R "$here/templates/github" .github
   echo "wrote .github/ (ci, perf and release; melpazoid is a manual job)"
@@ -296,13 +288,7 @@ report_changes() {
     [ -n "$(git status --porcelain -- "$path" 2>/dev/null)" ] || continue
     changed="$changed $path"
   done
-  if [ -z "$changed" ]; then
-    printf '\nwhat this run wrote matches HEAD: nothing to review\n'
-    if [ -n "$dirty_before" ]; then
-      printf '  (it replaced uncommitted changes; they are gone, as the warning said)\n'
-    fi
-    return 0
-  fi
+  [ -n "$changed" ] || return 0
   status=$(git status --short -- $changed)
   files=$(printf '%s\n' "$status" | cut -c4- | sed 's/.* -> //')
   printf '\nwritten, and not committed:\n'
@@ -313,10 +299,6 @@ report_changes() {
   case $status in
     *'??'*) printf '  (a new file has nothing to diff yet: git add -N it first)\n' ;;
   esac
-  if [ -n "$dirty_before" ]; then
-    printf '  (%s already differed from HEAD before this run; the diff mixes both)\n' \
-      "$(echo $dirty_before)"
-  fi
 }
 
 report_changes
