@@ -250,6 +250,28 @@ That last rule is the one rule that reaches vendor, and it is the useful one:
 it keeps a vendored package from quietly depending on the host's modules,
 which is how a copy stops being replaceable.
 
+## Test dependencies
+
+A test may need a package the package itself does not: a testing macro, a
+fixture library.  Those are named in `:test-packages`, a list where each name
+is both the archive package and the feature to require.
+
+| key | default | what it decides |
+|---|---|---|
+| `:test-packages` | nil | packages the tests require, installed before ERT runs |
+
+`make test` installs them into the project cache before the test modules load,
+and `make lint` and `make coverage` do the same, so the compiler sees the
+macros the way the test run does.  The project cache is used even when the
+same package sits in the user's `~/.emacs.d/elpa`, because a stale global copy
+would decide what the suite compiles against; a test dependency that depended
+on who ran `make` first would make the CI's green meaningless.  Nothing here
+belongs in `Package-Requires`: a user of the package does not need a testing
+macro.
+
+The alternative is `vendor/`; prefer the published package when there is one,
+and vendor only what nobody publishes.
+
 ## Module layers
 
 An architecture with layers has one rule a `require` can express, and the
