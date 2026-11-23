@@ -20,6 +20,12 @@
 (require 'package)
 (require 'seq)
 
+(defconst p/suite-dependencies '(package-lint testcover-audit)
+  "Packages the suite installs for itself.
+`package-lint' runs the checks and `testcover-audit' measures coverage.  A
+project that is one of them cannot keep its name out of `ci/': the tree has
+to name the dependency, so `project-neutral' does not run for it.")
+
 (defun p/require-feature (feature)
   "Load FEATURE, returning non-nil on success."
   (condition-case nil

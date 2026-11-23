@@ -43,6 +43,13 @@ tooling under `ci/` is exempt from `definition-prefix` for a related
 reason: it is shared code that must not name the package at all
 (`project-neutral`), so its definitions use the suite's own prefix.
 
+A project that is itself one of the suite's dependencies is the one case
+`project-neutral` cannot answer.  `ci/coverage.el` has to name
+testcover-audit and `ci/deps.el` has to name testcover-audit and
+package-lint, so the mention the rule forbids and the dependency the
+suite installs are the same string.  The check does not run for such a
+project, because no edit could make it pass.
+
 A business module needs a name after the prefix: `lisp/<pkg>-.el` and
 `lisp/<pkg>--name.el` both fail, because the module name would be empty or
 start with a dash.  Inside any module, `defcustom`, `defvar`, `defun`,
